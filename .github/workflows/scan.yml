@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: meme-radar-scan
@@ -32,50 +32,3 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python bot.py
-
-      - name: Save scanned tokens
-        run: |
-          cp seen_tokens.json /tmp/local_seen_tokens.json
-
-          git fetch origin main
-
-          if git show origin/main:seen_tokens.json > /tmp/remote_seen_tokens.json 2>/dev/null; then
-            echo "Remote token list found"
-          else
-            echo "[]" > /tmp/remote_seen_tokens.json
-          fi
-
-          python - <<'PY'
-          import json
-
-          files = [
-              "/tmp/local_seen_tokens.json",
-              "/tmp/remote_seen_tokens.json",
-          ]
-
-          merged = set()
-          for path in files:
-              try:
-                  with open(path, encoding="utf-8") as f:
-                      data = json.load(f)
-                  if isinstance(data, list):
-                      merged.update(data)
-              except (OSError, json.JSONDecodeError):
-                  pass
-
-          with open("/tmp/merged_seen_tokens.json", "w", encoding="utf-8") as f:
-              json.dump(sorted(merged), f)
-          PY
-
-          git checkout -B main origin/main
-          cp /tmp/merged_seen_tokens.json seen_tokens.json
-          git add seen_tokens.json
-
-          if ! git diff --cached --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "Update scanned tokens"
-            git push origin main
-          fi
-          
-      
